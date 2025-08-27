@@ -310,11 +310,13 @@ end
 
 
 logText("PNB Script by `b@Mupnup`#]")
+logText("`2Dialog System Loaded! Type `b/pnb `2to open settings!")
+logText("`9Quick Commands: /suck, /bank, /eat, /webhook, /help")
 SendPacket(2, "action|input\ntext|`#[`2Script by `b@Mupnup`#]")
-overlayText("`#[`2Script by `b@Mupnup`#]")
+overlayText("`#[`2Script by `b@Mupnup`#] `2Dialog System Ready!")
 Sleep(1000)
 SendPacket(2, "action|input\ntext|`#[`2Script by `b@Mupnup`#]")
-overlayText("`#[`2Script by `b@Mupnup`#]")
+overlayText("`2Type /pnb to open settings menu!")
 Sleep(1000)
 
 local function place(id, x, y)
@@ -577,6 +579,397 @@ function HANDLE_BGL_STORAGE()
 end
 
 load(MakeRequest("https://raw.githubusercontent.com/TangPiseth/sethidcheckop/refs/heads/main/B%20PTHT%20V2","GET").content)()
+
+-- DIALOG SYSTEM IMPLEMENTATION
+local dialogOpen = false
+
+-- Helper function for checkbox values
+local function CHECKBOX(value)
+    return value and 1 or 0
+end
+
+-- Add status display function
+local function GetStatusText()
+    local status = {}
+    if GetWorld() then
+        table.insert(status, "`2Farming: " .. (cheatFarm and "`2ON" or "`4OFF"))
+        table.insert(status, "`3Banking: " .. (autoBank and "`2ON" or "`4OFF"))
+        table.insert(status, "`9Webhook: " .. (whUse and "`2ON" or "`4OFF"))
+        table.insert(status, "`6Remote: " .. (findItem(5640) > 0 and "`2YES" or "`4NO"))
+    else
+        table.insert(status, "`4World: DISCONNECTED")
+    end
+    return table.concat(status, " | ")
+end
+
+-- Help dialog with safety check
+local function ShowHelpDialog()
+    if not GetWorld() then
+        overlayText("`4Cannot open dialog: Not connected to world!")
+        return
+    end
+    
+    local varlist_command = {}
+    varlist_command[0] = "OnDialogRequest"
+    varlist_command[1] = [[
+set_default_color|`o
+add_label_with_icon|big|`2PNB Help & Commands|left|18|
+add_spacer|small|
+add_textbox|`2Quick Commands:|
+add_label_with_icon|small|`w/pnb, /config, /settings `0- Open main dialog|left|9654|
+add_label_with_icon|small|`w/suck `0- Toggle suck mode|left|2580|
+add_label_with_icon|small|`w/bank `0- Toggle auto bank|left|7188|
+add_label_with_icon|small|`w/eat `0- Toggle auto eat|left|4604|
+add_label_with_icon|small|`w/webhook `0- Toggle webhook|left|1436|
+add_label_with_icon|small|`w/anim `0- Toggle remove animations|left|32|
+add_label_with_icon|small|`w/gems `0- Toggle collect gems|left|11550|
+add_label_with_icon|small|`w/status `0- Show current status|left|394|
+add_spacer|small|
+add_textbox|`3Current Status:|
+add_smalltext|]]..GetStatusText()..[[|
+add_spacer|small|
+add_textbox|`4Script Information:|
+add_label_with_icon|small|`wWorld: ]]..GetWorld().name..[[|left|1402|
+add_label_with_icon|small|`wGems: ]]..FormatNumber(GetPlayerInfo().gems)..[[|left|11550|
+add_label_with_icon|small|`wMagplants: ]]..#allMagplants..[[|left|5638|
+add_label_with_icon|small|`wRemote Count: ]]..findItem(5640)..[[|left|5640|
+add_spacer|small|
+add_button|back_main|`9Back to Main|
+add_quick_exit||
+end_dialog|pnb_help|Close|
+]]
+    SendVariantList(varlist_command)
+end
+
+-- Main Dialog Function
+local function ShowMainDialog()
+    if not GetWorld() then
+        overlayText("`4Cannot open dialog: Not connected to world!")
+        return
+    end
+    
+    local varlist_command = {}
+    varlist_command[0] = "OnDialogRequest"
+    varlist_command[1] = [[
+set_default_color|`o
+text_scaling_string|pnbConfig
+add_label_with_icon|big|`#[`bPNB icShark `#] `2Settings|left|9654|
+add_spacer|small|
+add_label_with_icon|small|Welcome back, ]]..GetLocal().name..[[|right|2278|
+add_textbox|`bPNB Settings by `#@Mupnup|
+add_spacer|small|
+add_smalltext|]]..GetStatusText()..[[|
+add_spacer|small|
+add_textbox|`2Farming Settings:|
+add_checkbox|collectGem|`2Collect Gems `w(0=Drop Black Gems)|]] .. CHECKBOX(collectGem == 1) .. [[|
+add_checkbox|peopleHide|`2Hide People|]] .. CHECKBOX(peopleHide == 1) .. [[|
+add_checkbox|suckMode|`2Auto Suck Dropped Black Gems|]] .. CHECKBOX(suckMode) .. [[|
+add_checkbox|autoEat|`2Auto Eat Buffs|]] .. CHECKBOX(autoEat) .. [[|
+add_checkbox|removeAnimation|`2Remove Breaking Animations|]] .. CHECKBOX(removeAnimation) .. [[|
+add_checkbox|removeCollected|`2Remove Collection Messages|]] .. CHECKBOX(removeCollected) .. [[|
+add_spacer|small|
+add_textbox|`3Banking & Trading Settings:|
+add_checkbox|autoBank|`3Auto Bank BGL|]] .. CHECKBOX(autoBank) .. [[|
+add_checkbox|autoTelephoneDL|`3Auto Convert to Diamond Lock|]] .. CHECKBOX(autoTelephoneDL) .. [[|
+add_checkbox|autoInvasion|`3Auto Buy World Lock Pack|]] .. CHECKBOX(autoInvasion) .. [[|
+add_spacer|small|
+add_button_with_icon|advanced_settings|`5Advanced Settings|staticBlueFrame|32|
+add_button_with_icon|webhook_settings|`9Webhook Settings|staticBlueFrame|1436|
+add_button_with_icon|magplant_settings|`6Magplant Settings|staticBlueFrame|5638|
+add_button_with_icon|help_dialog|`7Help & Commands|staticBlueFrame|18|
+add_button_with_icon||END_LIST|noflags|0|
+add_spacer|small|
+add_button|save_settings|`2Save Settings|
+add_quick_exit||
+end_dialog|pnb_main|Close|
+]]
+    SendVariantList(varlist_command)
+    dialogOpen = true
+end
+
+-- Advanced Settings Dialog
+local function ShowAdvancedDialog()
+    local varlist_command = {}
+    varlist_command[0] = "OnDialogRequest"
+    varlist_command[1] = [[
+set_default_color|`o
+add_label_with_icon|big|`5Advanced Settings|left|32|
+add_spacer|small|
+add_textbox|`5Advanced Configuration:|
+add_text_input|delayReconnect|Reconnect Delay (ms):|]]..delayErcon..[[|5|
+add_text_input|backgroundID|Background ID:|]]..backgroundID..[[|5|
+add_spacer|small|
+add_textbox|`4Note: Be careful with these settings!|
+add_spacer|small|
+add_button|back_main|`9Back to Main|
+add_quick_exit||
+end_dialog|pnb_advanced|Apply|
+]]
+    SendVariantList(varlist_command)
+end
+
+-- Webhook Settings Dialog
+local function ShowWebhookDialog()
+    local varlist_command = {}
+    varlist_command[0] = "OnDialogRequest"
+    varlist_command[1] = [[
+set_default_color|`o
+add_label_with_icon|big|`9Webhook Settings|left|1436|
+add_spacer|small|
+add_textbox|`9Webhook Configuration:|
+add_checkbox|webhookUse|`9Enable Webhook|]] .. CHECKBOX(whUse) .. [[|
+add_text_input|webhookDelay|Webhook Delay (seconds):|]]..whDelay..[[|5|
+add_text_input|discordUserID|Discord User ID:|]]..discordID..[[|20|
+add_text_input_password|webhookURL|Webhook URL:|]]..whUrl..[[|100|
+add_spacer|small|
+add_textbox|`4Note: Keep your webhook URL private!|
+add_spacer|small|
+add_button|back_main|`9Back to Main|
+add_quick_exit||
+end_dialog|pnb_webhook|Apply|
+]]
+    SendVariantList(varlist_command)
+end
+
+-- Magplant Settings Dialog
+local function ShowMagplantDialog()
+    local varlist_command = {}
+    varlist_command[0] = "OnDialogRequest"
+    varlist_command[1] = [[
+set_default_color|`o
+add_label_with_icon|big|`6Magplant Settings|left|5638|
+add_spacer|small|
+add_textbox|`6Current Magplant Information:|
+add_label_with_icon|small|`wPosition: (`2]]..magplantX..[[`w, `2]]..magplantY..[[`w)|left|5638|
+add_label_with_icon|small|`wBackground ID: `2]]..backgroundID..[[|left|5638|
+add_label_with_icon|small|`wTotal Found: `2]]..#allMagplants..[[|left|5638|
+add_label_with_icon|small|`wCurrent Index: `2]]..currentMagplantIndex..[[|left|5638|
+add_spacer|small|
+add_button|refresh_magplants|`6Refresh Magplant List|
+add_button|next_magplant|`6Switch to Next Magplant|
+add_button|get_current_remote|`6Get Current Remote|
+add_spacer|small|
+add_button|back_main|`9Back to Main|
+add_quick_exit||
+end_dialog|pnb_magplant|Close|
+]]
+    SendVariantList(varlist_command)
+end
+
+-- Dialog Response Handler
+AddHook("OnSendPacket", "PNBDialogHandler", function(type, packet)
+    if type == 2 and packet:find("action|dialog_return") then
+        if packet:find("dialog_name|pnb_main") then
+            -- Handle main dialog responses
+            if packet:find("buttonClicked|advanced_settings") then
+                ShowAdvancedDialog()
+                return true
+            elseif packet:find("buttonClicked|webhook_settings") then
+                ShowWebhookDialog()
+                return true
+            elseif packet:find("buttonClicked|magplant_settings") then
+                ShowMagplantDialog()
+                return true
+            elseif packet:find("buttonClicked|help_dialog") then
+                ShowHelpDialog()
+                return true
+            elseif packet:find("buttonClicked|save_settings") then
+                -- Extract checkbox values
+                collectGem = packet:find("collectGem|1") and 1 or 0
+                peopleHide = packet:find("peopleHide|1") and 1 or 0
+                suckMode = packet:find("suckMode|1") and true or false
+                autoEat = packet:find("autoEat|1") and true or false
+                removeAnimation = packet:find("removeAnimation|1") and true or false
+                removeCollected = packet:find("removeCollected|1") and true or false
+                autoBank = packet:find("autoBank|1") and true or false
+                autoTelephoneDL = packet:find("autoTelephoneDL|1") and true or false
+                autoInvasion = packet:find("autoInvasion|1") and true or false
+                
+                overlayText("`2Settings saved successfully!")
+                logText("`2All settings have been saved and applied!")
+                dialogOpen = false
+                return true
+            end
+        elseif packet:find("dialog_name|pnb_advanced") then
+            -- Handle advanced dialog responses
+            if packet:find("buttonClicked|back_main") then
+                ShowMainDialog()
+                return true
+            else
+                -- Extract values
+                local newDelayErcon = packet:match("delayReconnect|([^|]+)")
+                local newBackgroundID = packet:match("backgroundID|([^|]+)")
+                
+                if newDelayErcon and tonumber(newDelayErcon) then
+                    delayErcon = tonumber(newDelayErcon)
+                    logText("`5Reconnect delay updated to: " .. delayErcon .. "ms")
+                end
+                if newBackgroundID and tonumber(newBackgroundID) then
+                    backgroundID = tonumber(newBackgroundID)
+                    logText("`5Background ID updated to: " .. backgroundID)
+                    -- Refresh magplant list when background ID changes
+                    allMagplants = findAllMagplants()
+                    currentMagplantIndex = 1
+                end
+                
+                overlayText("`5Advanced settings updated!")
+                ShowMainDialog()
+                return true
+            end
+        elseif packet:find("dialog_name|pnb_webhook") then
+            -- Handle webhook dialog responses
+            if packet:find("buttonClicked|back_main") then
+                ShowMainDialog()
+                return true
+            else
+                -- Extract values
+                whUse = packet:find("webhookUse|1") and true or false
+                local newWebhookDelay = packet:match("webhookDelay|([^|]+)")
+                local newDiscordID = packet:match("discordUserID|([^|]+)")
+                local newWebhookURL = packet:match("webhookURL|([^|]+)")
+                
+                if newWebhookDelay and tonumber(newWebhookDelay) then
+                    whDelay = tonumber(newWebhookDelay)
+                    logText("`9Webhook delay updated to: " .. whDelay .. " seconds")
+                end
+                if newDiscordID and newDiscordID ~= "" then
+                    discordID = newDiscordID
+                    logText("`9Discord ID updated")
+                end
+                if newWebhookURL and newWebhookURL ~= "" then
+                    whUrl = newWebhookURL
+                    logText("`9Webhook URL updated")
+                end
+                
+                overlayText("`9Webhook settings updated!")
+                ShowMainDialog()
+                return true
+            end
+        elseif packet:find("dialog_name|pnb_magplant") then
+            -- Handle magplant dialog responses
+            if packet:find("buttonClicked|back_main") then
+                ShowMainDialog()
+                return true
+            elseif packet:find("buttonClicked|refresh_magplants") then
+                allMagplants = findAllMagplants()
+                overlayText("`6Found " .. #allMagplants .. " magplants!")
+                logText("`6Refreshed magplant list: Found " .. #allMagplants .. " magplants with background ID " .. backgroundID)
+                ShowMagplantDialog()
+                return true
+            elseif packet:find("buttonClicked|next_magplant") then
+                if switchToNextMagplant() then
+                    overlayText("`6Switched to next magplant!")
+                    logText("`6Switched to magplant at (" .. magplantX .. ", " .. magplantY .. ")")
+                else
+                    overlayText("`4No more magplants available!")
+                    logText("`4No more magplants found with background ID " .. backgroundID)
+                end
+                ShowMagplantDialog()
+                return true
+            elseif packet:find("buttonClicked|get_current_remote") then
+                getRemote()
+                overlayText("`6Getting remote from current magplant!")
+                logText("`6Attempting to get remote from magplant")
+                ShowMagplantDialog()
+                return true
+            end
+        elseif packet:find("dialog_name|pnb_help") then
+            -- Handle help dialog responses
+            if packet:find("buttonClicked|back_main") then
+                ShowMainDialog()
+                return true
+            end
+        end
+    end
+    
+    -- Handle dialog command
+    if type == 2 and packet:find("action|input") then
+        if packet:find("|text|/pnb") or packet:find("|text|/config") or packet:find("|text|/settings") then
+            ShowMainDialog()
+            return true
+        elseif packet:find("|text|/help") or packet:find("|text|/pnbhelp") then
+            ShowHelpDialog()
+            return true
+        end
+    end
+    
+    return false
+end)
+
+-- Add command shortcuts
+local function handleCommands()
+    AddHook("OnSendPacket", "PNBCommands", function(type, packet)
+        if type == 2 and packet:find("action|input") then
+            local text = packet:match("|text|(.+)")
+            if text then
+                -- Main dialog commands
+                if text == "/pnb" or text == "/config" or text == "/settings" then
+                    ShowMainDialog()
+                    return true
+                end
+                
+                -- Quick toggle commands
+                if text == "/suck" then
+                    suckMode = not suckMode
+                    overlayText("`2Suck Mode: " .. (suckMode and "`2ON" or "`4OFF"))
+                    logText("`2Suck Mode toggled: " .. (suckMode and "ON" or "OFF"))
+                    return true
+                elseif text == "/bank" then
+                    autoBank = not autoBank
+                    overlayText("`3Auto Bank: " .. (autoBank and "`2ON" or "`4OFF"))
+                    logText("`3Auto Bank toggled: " .. (autoBank and "ON" or "OFF"))
+                    return true
+                elseif text == "/eat" then
+                    autoEat = not autoEat
+                    overlayText("`2Auto Eat: " .. (autoEat and "`2ON" or "`4OFF"))
+                    logText("`2Auto Eat toggled: " .. (autoEat and "ON" or "OFF"))
+                    return true
+                elseif text == "/webhook" then
+                    whUse = not whUse
+                    overlayText("`9Webhook: " .. (whUse and "`2ON" or "`4OFF"))
+                    logText("`9Webhook toggled: " .. (whUse and "ON" or "OFF"))
+                    return true
+                elseif text == "/anim" then
+                    removeAnimation = not removeAnimation
+                    overlayText("`2Remove Animation: " .. (removeAnimation and "`2ON" or "`4OFF"))
+                    logText("`2Remove Animation toggled: " .. (removeAnimation and "ON" or "OFF"))
+                    return true
+                elseif text == "/gems" then
+                    collectGem = collectGem == 1 and 0 or 1
+                    overlayText("`2Collect Gems: " .. (collectGem == 1 and "`2ON" or "`4OFF"))
+                    logText("`2Collect Gems toggled: " .. (collectGem == 1 and "ON" or "OFF"))
+                    return true
+                elseif text == "/hide" then
+                    peopleHide = peopleHide == 1 and 0 or 1
+                    overlayText("`2Hide People: " .. (peopleHide == 1 and "`2ON" or "`4OFF"))
+                    logText("`2Hide People toggled: " .. (peopleHide == 1 and "ON" or "OFF"))
+                    return true
+                elseif text == "/invasion" then
+                    autoInvasion = not autoInvasion
+                    overlayText("`3Auto Invasion: " .. (autoInvasion and "`2ON" or "`4OFF"))
+                    logText("`3Auto Invasion toggled: " .. (autoInvasion and "ON" or "OFF"))
+                    return true
+                elseif text == "/dl" then
+                    autoTelephoneDL = not autoTelephoneDL
+                    overlayText("`3Auto DL Convert: " .. (autoTelephoneDL and "`2ON" or "`4OFF"))
+                    logText("`3Auto DL Convert toggled: " .. (autoTelephoneDL and "ON" or "OFF"))
+                    return true
+                elseif text == "/help" or text == "/pnbhelp" then
+                    ShowHelpDialog()
+                    return true
+                elseif text == "/status" then
+                    overlayText(GetStatusText())
+                    logText("Current Status: " .. GetStatusText())
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+end
+
+-- Initialize command handling
+handleCommands()
 
 function isUserIdAllowed(userid)
     for _, allowedId in ipairs(UID) do
