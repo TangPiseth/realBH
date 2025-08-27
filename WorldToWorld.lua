@@ -1,3 +1,6 @@
+-- [ WORLD TO WORLD SCRIPT BY icShark ] --
+-- [ FULL OWNERSHIP TO icShark ] --
+
 -- [ CONFIGURATION ] --
 
 --[ WORLD SETTINGS ] --
@@ -35,6 +38,107 @@ MainSettings = {
   },
   Delay = 2000,
 }
+
+-- [ SCRIPT CONTROL ] --
+local ScriptRunning = false
+
+-- [ DIALOG FUNCTIONS ] --
+local function MainDialog()
+    local dialog = [[
+set_default_color|`o
+add_label_with_icon|big|`9World To World Script|left|3802|
+add_spacer|small|
+add_label_with_icon|small|`cFull Ownership: `eicShark|left|2278|
+add_spacer|small|
+add_textbox|`9World Settings:|
+add_text_input|world_from|From World:|]]..World.From..[[|20|
+add_text_input|world_to|To World:|]]..World.To..[[|20|
+add_spacer|small|
+add_textbox|`9Item Settings:|
+add_text_input|item_id|Item ID:|]]..ITEM_ID..[[|10|
+add_spacer|small|
+add_textbox|`9From World Mode:|
+add_checkbox|from_drop|Drop Mode|]]..(Mode.From.Drop and "1" or "0")..[[|
+add_checkbox|from_vend|Vend Mode|]]..(Mode.From.Vend and "1" or "0")..[[|
+add_checkbox|from_mag|Magplant Mode|]]..(Mode.From.Mag and "1" or "0")..[[|
+add_spacer|small|
+add_textbox|`9To World Mode:|
+add_checkbox|to_drop|Drop Mode|]]..(Mode.To.Drop and "1" or "0")..[[|
+add_checkbox|to_vend|Vend Mode|]]..(Mode.To.Vend and "1" or "0")..[[|
+add_checkbox|to_mag|Magplant Mode|]]..(Mode.To.Mag and "1" or "0")..[[|
+add_spacer|small|
+add_button|settings|`9Advanced Settings|
+add_spacer|small|
+add_button|]]..(ScriptRunning and "stop" or "start")..[[|`]]..(ScriptRunning and "4Stop Script" or "2Start Script")..[[|
+add_spacer|small|
+add_button|info|`9Script Info|
+end_dialog|wtw_main|Close|Save Settings|
+add_quick_exit||
+]]
+    SendVariantList({[0] = "OnDialogRequest", [1] = dialog})
+end
+
+local function SettingsDialog()
+    local dialog = [[
+set_default_color|`o
+add_label_with_icon|big|`9Advanced Settings|left|32|
+add_spacer|small|
+add_label_with_icon|small|`cFull Ownership: `eicShark|left|2278|
+add_spacer|small|
+add_textbox|`9From World Settings:|
+add_text_input|from_magbg|Magplant BG ID:|]]..MainSettings.From.MagBG..[[|10|
+add_text_input|from_vendx|Vend X Position:|]]..MainSettings.From.VendPos[1]..[[|10|
+add_text_input|from_vendy|Vend Y Position:|]]..MainSettings.From.VendPos[2]..[[|10|
+add_spacer|small|
+add_textbox|`9To World Settings:|
+add_text_input|to_magbg|Magplant BG ID:|]]..MainSettings.To.MagBG..[[|10|
+add_text_input|to_vendx|Vend X Position:|]]..MainSettings.To.VendPos[1]..[[|10|
+add_text_input|to_vendy|Vend Y Position:|]]..MainSettings.To.VendPos[2]..[[|10|
+add_text_input|to_dropx|Drop X Position:|]]..MainSettings.To.PosDrop[1]..[[|10|
+add_text_input|to_dropy|Drop Y Position:|]]..MainSettings.To.PosDrop[2]..[[|10|
+add_spacer|small|
+add_textbox|`9General Settings:|
+add_text_input|delay|Script Delay (ms):|]]..MainSettings.Delay..[[|10|
+add_spacer|small|
+add_button|main|`9Back to Main|
+end_dialog|wtw_settings|Close|Save Settings|
+add_quick_exit||
+]]
+    SendVariantList({[0] = "OnDialogRequest", [1] = dialog})
+end
+
+local function InfoDialog()
+    local dialog = [[
+set_default_color|`o
+add_label_with_icon|big|`9Script Information|left|3524|
+add_spacer|small|
+add_label_with_icon|small|`cFull Ownership: `eicShark|left|2278|
+add_spacer|small|
+add_textbox|`9Current Status:|
+add_smalltext|Script Status: ]]..(ScriptRunning and "`2Running" or "`4Stopped")..[[|
+add_smalltext|Current World: `e]]..GetWorld().name..[[|
+add_smalltext|Player Position: `9]]..math.floor(GetLocal().pos.x / 32)..[[`w, `6]]..math.floor(GetLocal().pos.y / 32)..[[|
+add_spacer|small|
+add_textbox|`9Configuration:|
+add_smalltext|From World: `c]]..World.From..[[|
+add_smalltext|To World: `c]]..World.To..[[|
+add_smalltext|Item ID: `e]]..ITEM_ID..[[|
+add_smalltext|From Mode: Drop:`]]..(Mode.From.Drop and "2ON" or "4OFF")..[[ Vend:`]]..(Mode.From.Vend and "2ON" or "4OFF")..[[ Mag:`]]..(Mode.From.Mag and "2ON" or "4OFF")..[[|
+add_smalltext|To Mode: Drop:`]]..(Mode.To.Drop and "2ON" or "4OFF")..[[ Vend:`]]..(Mode.To.Vend and "2ON" or "4OFF")..[[ Mag:`]]..(Mode.To.Mag and "2ON" or "4OFF")..[[|
+add_spacer|small|
+add_textbox|`9Commands:|
+add_smalltext|`9/wtw `w- Open main dialog|
+add_spacer|small|
+add_textbox|`9Credits:|
+add_smalltext|Script Owner: `eicShark|
+add_smalltext|Script Type: World to World Transfer|
+add_smalltext|Version: 1.0 with Dialog|
+add_spacer|small|
+add_button|main|`9Back to Main|
+add_quick_exit||
+]]
+    SendVariantList({[0] = "OnDialogRequest", [1] = dialog})
+end
 
 
 function inv(id)
@@ -410,9 +514,148 @@ function mag_setting()
   end
 end
 
+-- [ PACKET HANDLING ] --
+AddHook("onsendpacket", "WTW_DIALOG", function(type, str)
+    -- Command to open main dialog
+    if str:find("/wtw") then
+        MainDialog()
+        return true
+    end
+    
+    -- Handle dialog returns
+    if str:find("action|dialog_return") then
+        if str:find("dialog_name|wtw_main") then
+            -- Parse main dialog settings
+            if str:find("world_from|") then
+                World.From = str:match("world_from|([^|]*)")
+            end
+            if str:find("world_to|") then
+                World.To = str:match("world_to|([^|]*)")
+            end
+            if str:find("item_id|") then
+                local itemId = str:match("item_id|([^|]*)")
+                if itemId and tonumber(itemId) then
+                    ITEM_ID = tonumber(itemId)
+                end
+            end
+            
+            -- Parse mode checkboxes
+            Mode.From.Drop = str:find("from_drop|1") ~= nil
+            Mode.From.Vend = str:find("from_vend|1") ~= nil
+            Mode.From.Mag = str:find("from_mag|1") ~= nil
+            Mode.To.Drop = str:find("to_drop|1") ~= nil
+            Mode.To.Vend = str:find("to_vend|1") ~= nil
+            Mode.To.Mag = str:find("to_mag|1") ~= nil
+            
+            -- Handle buttons
+            if str:find("buttonClicked|settings") then
+                SettingsDialog()
+                return true
+            elseif str:find("buttonClicked|info") then
+                InfoDialog()
+                return true
+            elseif str:find("buttonClicked|start") then
+                ScriptRunning = true
+                Log("Script Started by icShark")
+                MainDialog()
+                return true
+            elseif str:find("buttonClicked|stop") then
+                ScriptRunning = false
+                Log("Script Stopped by icShark")
+                MainDialog()
+                return true
+            end
+            
+            Log("Settings saved by icShark")
+            return true
+            
+        elseif str:find("dialog_name|wtw_settings") then
+            -- Parse advanced settings
+            if str:find("from_magbg|") then
+                local magBG = str:match("from_magbg|([^|]*)")
+                if magBG and tonumber(magBG) then
+                    MainSettings.From.MagBG = tonumber(magBG)
+                end
+            end
+            if str:find("from_vendx|") then
+                local vendX = str:match("from_vendx|([^|]*)")
+                if vendX and tonumber(vendX) then
+                    MainSettings.From.VendPos[1] = tonumber(vendX)
+                end
+            end
+            if str:find("from_vendy|") then
+                local vendY = str:match("from_vendy|([^|]*)")
+                if vendY and tonumber(vendY) then
+                    MainSettings.From.VendPos[2] = tonumber(vendY)
+                end
+            end
+            if str:find("to_magbg|") then
+                local magBG = str:match("to_magbg|([^|]*)")
+                if magBG and tonumber(magBG) then
+                    MainSettings.To.MagBG = tonumber(magBG)
+                end
+            end
+            if str:find("to_vendx|") then
+                local vendX = str:match("to_vendx|([^|]*)")
+                if vendX and tonumber(vendX) then
+                    MainSettings.To.VendPos[1] = tonumber(vendX)
+                end
+            end
+            if str:find("to_vendy|") then
+                local vendY = str:match("to_vendy|([^|]*)")
+                if vendY and tonumber(vendY) then
+                    MainSettings.To.VendPos[2] = tonumber(vendY)
+                end
+            end
+            if str:find("to_dropx|") then
+                local dropX = str:match("to_dropx|([^|]*)")
+                if dropX and tonumber(dropX) then
+                    MainSettings.To.PosDrop[1] = tonumber(dropX)
+                end
+            end
+            if str:find("to_dropy|") then
+                local dropY = str:match("to_dropy|([^|]*)")
+                if dropY and tonumber(dropY) then
+                    MainSettings.To.PosDrop[2] = tonumber(dropY)
+                end
+            end
+            if str:find("delay|") then
+                local delay = str:match("delay|([^|]*)")
+                if delay and tonumber(delay) then
+                    MainSettings.Delay = tonumber(delay)
+                end
+            end
+            
+            -- Handle buttons
+            if str:find("buttonClicked|main") then
+                MainDialog()
+                return true
+            end
+            
+            Log("Advanced settings saved by icShark")
+            return true
+        elseif str:find("dialog_name|wtw_info") then
+            -- Handle info dialog buttons
+            if str:find("buttonClicked|main") then
+                MainDialog()
+                return true
+            end
+            return true
+        end
+    end
+    
+    return false
+end)
+
+-- [ MAIN SCRIPT LOOP ] --
+-- Show initial dialog
+MainDialog()
+
 while true do
-  Sleep(200)
-  drop_setting()
-  vend_setting()
-  mag_setting()
+    Sleep(200)
+    if ScriptRunning then
+        drop_setting()
+        vend_setting()
+        mag_setting()
+    end
 end
