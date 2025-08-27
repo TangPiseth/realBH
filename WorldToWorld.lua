@@ -135,6 +135,7 @@ add_smalltext|Script Type: World to World Transfer|
 add_smalltext|Version: 1.0 with Dialog|
 add_spacer|small|
 add_button|main|`9Back to Main|
+end_dialog|wtw_info|Close|
 add_quick_exit||
 ]]
     SendVariantList({[0] = "OnDialogRequest", [1] = dialog})
@@ -182,7 +183,7 @@ function drop()
 end
 
 function Log(x)
-		LogToConsole("`0[`cAwZka`0] "..x)
+		LogToConsole("`0[`cicShark`0] "..x)
 end
 
 function Join(w)
