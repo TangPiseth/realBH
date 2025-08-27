@@ -615,24 +615,31 @@ local function ShowHelpDialog()
 set_default_color|`o
 add_label_with_icon|big|`2PNB Help & Commands|left|18|
 add_spacer|small|
-add_textbox|`2Quick Commands:|
+add_textbox|`2Dialog Commands:|
 add_label_with_icon|small|`w/pnb, /config, /settings `0- Open main dialog|left|9654|
-add_label_with_icon|small|`w/suck `0- Toggle suck mode|left|2580|
-add_label_with_icon|small|`w/bank `0- Toggle auto bank|left|7188|
-add_label_with_icon|small|`w/eat `0- Toggle auto eat|left|4604|
-add_label_with_icon|small|`w/webhook `0- Toggle webhook|left|1436|
+add_label_with_icon|small|`w/help, /pnbhelp `0- Show this help dialog|left|18|
+add_spacer|small|
+add_textbox|`3Quick Toggle Commands:|
+add_label_with_icon|small|`w/suck `0- Toggle auto suck black gems|left|2580|
+add_label_with_icon|small|`w/bank `0- Toggle auto bank BGL|left|7188|
+add_label_with_icon|small|`w/eat `0- Toggle auto eat buffs|left|4604|
+add_label_with_icon|small|`w/webhook `0- Toggle webhook notifications|left|1436|
 add_label_with_icon|small|`w/anim `0- Toggle remove animations|left|32|
-add_label_with_icon|small|`w/gems `0- Toggle collect gems|left|11550|
+add_label_with_icon|small|`w/gems `0- Toggle collect gems mode|left|11550|
+add_label_with_icon|small|`w/hide `0- Toggle hide people|left|15590|
+add_label_with_icon|small|`w/invasion `0- Toggle auto invasion|left|15286|
+add_label_with_icon|small|`w/dl `0- Toggle auto DL convert|left|1796|
 add_label_with_icon|small|`w/status `0- Show current status|left|394|
 add_spacer|small|
-add_textbox|`3Current Status:|
+add_textbox|`4Current Status:|
 add_smalltext|]]..GetStatusText()..[[|
 add_spacer|small|
-add_textbox|`4Script Information:|
-add_label_with_icon|small|`wWorld: ]]..GetWorld().name..[[|left|1402|
-add_label_with_icon|small|`wGems: ]]..FormatNumber(GetPlayerInfo().gems)..[[|left|11550|
-add_label_with_icon|small|`wMagplants: ]]..#allMagplants..[[|left|5638|
-add_label_with_icon|small|`wRemote Count: ]]..findItem(5640)..[[|left|5640|
+add_textbox|`5System Information:|
+add_label_with_icon|small|`wWorld: `2]]..GetWorld().name..[[|left|1402|
+add_label_with_icon|small|`wGems: `2]]..FormatNumber(GetPlayerInfo().gems)..[[|left|11550|
+add_label_with_icon|small|`wMagplants: `2]]..#allMagplants..[[|left|5638|
+add_label_with_icon|small|`wRemote Count: `2]]..findItem(5640)..[[|left|5640|
+add_label_with_icon|small|`wPosition: (`2]]..math.floor(GetLocal().pos.x / 32)..[[`w, `2]]..math.floor(GetLocal().pos.y / 32)..[[`w)|left|1684|
 add_spacer|small|
 add_button|back_main|`9Back to Main|
 add_quick_exit||
@@ -677,6 +684,7 @@ add_button_with_icon|advanced_settings|`5Advanced Settings|staticBlueFrame|32|
 add_button_with_icon|webhook_settings|`9Webhook Settings|staticBlueFrame|1436|
 add_button_with_icon|magplant_settings|`6Magplant Settings|staticBlueFrame|5638|
 add_button_with_icon|help_dialog|`7Help & Commands|staticBlueFrame|18|
+add_button_with_icon|settings_mgmt|`5Settings Management|staticBlueFrame|394|
 add_button_with_icon||END_LIST|noflags|0|
 add_spacer|small|
 add_button|save_settings|`2Save Settings|
@@ -689,6 +697,11 @@ end
 
 -- Advanced Settings Dialog
 local function ShowAdvancedDialog()
+    if not GetWorld() then
+        overlayText("`4Cannot open dialog: Not connected to world!")
+        return
+    end
+    
     local varlist_command = {}
     varlist_command[0] = "OnDialogRequest"
     varlist_command[1] = [[
@@ -696,20 +709,30 @@ set_default_color|`o
 add_label_with_icon|big|`5Advanced Settings|left|32|
 add_spacer|small|
 add_textbox|`5Advanced Configuration:|
-add_text_input|delayReconnect|Reconnect Delay (ms):|]]..delayErcon..[[|5|
-add_text_input|backgroundID|Background ID:|]]..backgroundID..[[|5|
+add_text_input|delayReconnect|Reconnect Delay (ms):|]]..delayErcon..[[|8|
+add_text_input|backgroundID|Background ID:|]]..backgroundID..[[|8|
 add_spacer|small|
-add_textbox|`4Note: Be careful with these settings!|
+add_textbox|`4Current Values:|
+add_label_with_icon|small|`wCurrent Delay: `2]]..delayErcon..[[ms|left|394|
+add_label_with_icon|small|`wCurrent Background: `2]]..backgroundID..[[|left|394|
+add_spacer|small|
+add_textbox|`4Warning: Be careful with these settings!|
+add_textbox|`4Changing Background ID will reset magplant list|
 add_spacer|small|
 add_button|back_main|`9Back to Main|
 add_quick_exit||
-end_dialog|pnb_advanced|Apply|
+end_dialog|pnb_advanced|Apply Changes|
 ]]
     SendVariantList(varlist_command)
 end
 
 -- Webhook Settings Dialog
 local function ShowWebhookDialog()
+    if not GetWorld() then
+        overlayText("`4Cannot open dialog: Not connected to world!")
+        return
+    end
+    
     local varlist_command = {}
     varlist_command[0] = "OnDialogRequest"
     varlist_command[1] = [[
@@ -717,37 +740,56 @@ set_default_color|`o
 add_label_with_icon|big|`9Webhook Settings|left|1436|
 add_spacer|small|
 add_textbox|`9Webhook Configuration:|
-add_checkbox|webhookUse|`9Enable Webhook|]] .. CHECKBOX(whUse) .. [[|
-add_text_input|webhookDelay|Webhook Delay (seconds):|]]..whDelay..[[|5|
+add_checkbox|webhookUse|`9Enable Webhook Notifications|]] .. CHECKBOX(whUse) .. [[|
+add_text_input|webhookDelay|Webhook Delay (seconds):|]]..whDelay..[[|8|
 add_text_input|discordUserID|Discord User ID:|]]..discordID..[[|20|
 add_text_input_password|webhookURL|Webhook URL:|]]..whUrl..[[|100|
 add_spacer|small|
-add_textbox|`4Note: Keep your webhook URL private!|
+add_textbox|`2Current Settings:|
+add_label_with_icon|small|`wWebhook: `]] .. (whUse and "2ENABLED" or "4DISABLED") .. [[|left|1436|
+add_label_with_icon|small|`wDelay: `2]]..whDelay..[[ seconds|left|394|
+add_label_with_icon|small|`wDiscord ID: `2]] .. (discordID ~= "" and "SET" or "NOT SET") .. [[|left|2278|
+add_label_with_icon|small|`wWebhook URL: `2]] .. (whUrl ~= "" and "SET" or "NOT SET") .. [[|left|15590|
+add_spacer|small|
+add_textbox|`4Security Notice:|
+add_textbox|`4Keep your webhook URL private and secure!|
 add_spacer|small|
 add_button|back_main|`9Back to Main|
 add_quick_exit||
-end_dialog|pnb_webhook|Apply|
+end_dialog|pnb_webhook|Apply Changes|
 ]]
     SendVariantList(varlist_command)
 end
 
 -- Magplant Settings Dialog
 local function ShowMagplantDialog()
+    if not GetWorld() then
+        overlayText("`4Cannot open dialog: Not connected to world!")
+        return
+    end
+    
     local varlist_command = {}
     varlist_command[0] = "OnDialogRequest"
     varlist_command[1] = [[
 set_default_color|`o
-add_label_with_icon|big|`6Magplant Settings|left|5638|
+add_label_with_icon|big|`6Magplant Management|left|5638|
 add_spacer|small|
 add_textbox|`6Current Magplant Information:|
 add_label_with_icon|small|`wPosition: (`2]]..magplantX..[[`w, `2]]..magplantY..[[`w)|left|5638|
-add_label_with_icon|small|`wBackground ID: `2]]..backgroundID..[[|left|5638|
-add_label_with_icon|small|`wTotal Found: `2]]..#allMagplants..[[|left|5638|
-add_label_with_icon|small|`wCurrent Index: `2]]..currentMagplantIndex..[[|left|5638|
+add_label_with_icon|small|`wBackground ID: `2]]..backgroundID..[[|left|15772|
+add_label_with_icon|small|`wTotal Found: `2]]..#allMagplants..[[|left|394|
+add_label_with_icon|small|`wCurrent Index: `2]]..currentMagplantIndex..[[/]]..#allMagplants..[[|left|1684|
+add_label_with_icon|small|`wRemote Count: `2]]..findItem(5640)..[[|left|5640|
 add_spacer|small|
+add_textbox|`6Magplant Actions:|
 add_button|refresh_magplants|`6Refresh Magplant List|
 add_button|next_magplant|`6Switch to Next Magplant|
-add_button|get_current_remote|`6Get Current Remote|
+add_button|get_current_remote|`6Get Remote from Current|
+add_spacer|small|
+add_textbox|`4Tips:|
+add_textbox|`4- Refresh if magplants don't show up|
+add_textbox|`4- Switch magplant if current is empty|
+add_textbox|`4- Get remote to collect from magplant|
 add_spacer|small|
 add_button|back_main|`9Back to Main|
 add_quick_exit||
@@ -773,6 +815,9 @@ AddHook("OnSendPacket", "PNBDialogHandler", function(type, packet)
             elseif packet:find("buttonClicked|help_dialog") then
                 ShowHelpDialog()
                 return true
+            elseif packet:find("buttonClicked|settings_mgmt") then
+                ShowSettingsDialog()
+                return true
             elseif packet:find("buttonClicked|save_settings") then
                 -- Extract checkbox values
                 collectGem = packet:find("collectGem|1") and 1 or 0
@@ -796,23 +841,43 @@ AddHook("OnSendPacket", "PNBDialogHandler", function(type, packet)
                 ShowMainDialog()
                 return true
             else
-                -- Extract values
+                -- Extract values with validation
                 local newDelayErcon = packet:match("delayReconnect|([^|]+)")
                 local newBackgroundID = packet:match("backgroundID|([^|]+)")
                 
                 if newDelayErcon and tonumber(newDelayErcon) then
-                    delayErcon = tonumber(newDelayErcon)
-                    logText("`5Reconnect delay updated to: " .. delayErcon .. "ms")
-                end
-                if newBackgroundID and tonumber(newBackgroundID) then
-                    backgroundID = tonumber(newBackgroundID)
-                    logText("`5Background ID updated to: " .. backgroundID)
-                    -- Refresh magplant list when background ID changes
-                    allMagplants = findAllMagplants()
-                    currentMagplantIndex = 1
+                    local delay = tonumber(newDelayErcon)
+                    if delay >= 1000 and delay <= 60000 then -- Validate range 1-60 seconds
+                        delayErcon = delay
+                        logText("`5Reconnect delay updated to: " .. delayErcon .. "ms")
+                    else
+                        overlayText("`4Invalid delay! Must be between 1000-60000ms")
+                        logText("`4Reconnect delay not changed - invalid range")
+                    end
+                else
+                    overlayText("`4Invalid delay value!")
+                    logText("`4Reconnect delay not changed - invalid input")
                 end
                 
-                overlayText("`5Advanced settings updated!")
+                if newBackgroundID and tonumber(newBackgroundID) then
+                    local bgID = tonumber(newBackgroundID)
+                    if bgID > 0 then -- Validate positive number
+                        backgroundID = bgID
+                        logText("`5Background ID updated to: " .. backgroundID)
+                        -- Refresh magplant list when background ID changes
+                        allMagplants = findAllMagplants()
+                        currentMagplantIndex = 1
+                        logText("`6Refreshed magplant list: Found " .. #allMagplants .. " magplants")
+                    else
+                        overlayText("`4Invalid background ID! Must be positive")
+                        logText("`4Background ID not changed - invalid value")
+                    end
+                else
+                    overlayText("`4Invalid background ID!")
+                    logText("`4Background ID not changed - invalid input")
+                end
+                
+                overlayText("`5Advanced settings processed!")
                 ShowMainDialog()
                 return true
             end
@@ -822,26 +887,50 @@ AddHook("OnSendPacket", "PNBDialogHandler", function(type, packet)
                 ShowMainDialog()
                 return true
             else
-                -- Extract values
+                -- Extract values with validation
                 whUse = packet:find("webhookUse|1") and true or false
                 local newWebhookDelay = packet:match("webhookDelay|([^|]+)")
                 local newDiscordID = packet:match("discordUserID|([^|]+)")
                 local newWebhookURL = packet:match("webhookURL|([^|]+)")
                 
                 if newWebhookDelay and tonumber(newWebhookDelay) then
-                    whDelay = tonumber(newWebhookDelay)
-                    logText("`9Webhook delay updated to: " .. whDelay .. " seconds")
-                end
-                if newDiscordID and newDiscordID ~= "" then
-                    discordID = newDiscordID
-                    logText("`9Discord ID updated")
-                end
-                if newWebhookURL and newWebhookURL ~= "" then
-                    whUrl = newWebhookURL
-                    logText("`9Webhook URL updated")
+                    local delay = tonumber(newWebhookDelay)
+                    if delay >= 30 and delay <= 3600 then -- Validate range 30 seconds to 1 hour
+                        whDelay = delay
+                        logText("`9Webhook delay updated to: " .. whDelay .. " seconds")
+                    else
+                        overlayText("`4Invalid webhook delay! Must be between 30-3600 seconds")
+                        logText("`4Webhook delay not changed - invalid range")
+                    end
+                else
+                    if newWebhookDelay and newWebhookDelay ~= "" then
+                        overlayText("`4Invalid webhook delay value!")
+                        logText("`4Webhook delay not changed - invalid input")
+                    end
                 end
                 
-                overlayText("`9Webhook settings updated!")
+                if newDiscordID and newDiscordID ~= "" then
+                    if string.match(newDiscordID, "^%d+$") and string.len(newDiscordID) >= 17 then -- Basic Discord ID validation
+                        discordID = newDiscordID
+                        logText("`9Discord ID updated successfully")
+                    else
+                        overlayText("`4Invalid Discord ID format!")
+                        logText("`4Discord ID not changed - invalid format")
+                    end
+                end
+                
+                if newWebhookURL and newWebhookURL ~= "" then
+                    if string.match(newWebhookURL, "^https://discord%.com/api/webhooks/") or 
+                       string.match(newWebhookURL, "^https://discordapp%.com/api/webhooks/") then -- Basic webhook URL validation
+                        whUrl = newWebhookURL
+                        logText("`9Webhook URL updated successfully")
+                    else
+                        overlayText("`4Invalid webhook URL format!")
+                        logText("`4Webhook URL not changed - must be a Discord webhook")
+                    end
+                end
+                
+                overlayText("`9Webhook settings processed!")
                 ShowMainDialog()
                 return true
             end
@@ -877,6 +966,62 @@ AddHook("OnSendPacket", "PNBDialogHandler", function(type, packet)
             -- Handle help dialog responses
             if packet:find("buttonClicked|back_main") then
                 ShowMainDialog()
+                return true
+            end
+        elseif packet:find("dialog_name|pnb_settings_mgmt") then
+            -- Handle settings management dialog responses
+            if packet:find("buttonClicked|back_main") then
+                ShowMainDialog()
+                return true
+            elseif packet:find("buttonClicked|reset_farming") then
+                -- Reset farming settings to defaults
+                collectGem = 1
+                peopleHide = 0
+                suckMode = false
+                autoEat = true
+                removeAnimation = false
+                removeCollected = false
+                overlayText("`4Farming settings reset to defaults!")
+                logText("`4Farming settings have been reset")
+                ShowSettingsDialog()
+                return true
+            elseif packet:find("buttonClicked|reset_banking") then
+                -- Reset banking settings to defaults
+                autoBank = false
+                autoTelephoneDL = false
+                autoInvasion = false
+                overlayText("`4Banking settings reset to defaults!")
+                logText("`4Banking settings have been reset")
+                ShowSettingsDialog()
+                return true
+            elseif packet:find("buttonClicked|reset_webhook") then
+                -- Reset webhook settings to defaults
+                whUse = false
+                whDelay = 300
+                discordID = "443671458070396948"
+                whUrl = "https://discord.com/api/webhooks/1251877114295091283/Bm9nvNEsC46v8rWywNWrL4Vn6D0M2b8YwhavzAJHtODCHjpjFVArQKjQRzUgCmfLkZfB"
+                overlayText("`4Webhook settings reset to defaults!")
+                logText("`4Webhook settings have been reset")
+                ShowSettingsDialog()
+                return true
+            elseif packet:find("buttonClicked|reset_all") then
+                -- Reset all settings to defaults
+                collectGem = 1
+                peopleHide = 0
+                suckMode = false
+                autoBank = false
+                autoEat = true
+                autoInvasion = false
+                autoTelephoneDL = false
+                removeAnimation = false
+                removeCollected = false
+                whUse = false
+                whDelay = 300
+                delayErcon = 7000
+                backgroundID = 12840
+                overlayText("`4All settings reset to defaults!")
+                logText("`4All settings have been reset to default values")
+                ShowSettingsDialog()
                 return true
             end
         end
@@ -970,6 +1115,41 @@ end
 
 -- Initialize command handling
 handleCommands()
+
+-- Settings Management Dialog
+local function ShowSettingsDialog()
+    if not GetWorld() then
+        overlayText("`4Cannot open dialog: Not connected to world!")
+        return
+    end
+    
+    local varlist_command = {}
+    varlist_command[0] = "OnDialogRequest"
+    varlist_command[1] = [[
+set_default_color|`o
+add_label_with_icon|big|`5Settings Management|left|394|
+add_spacer|small|
+add_textbox|`5Settings Actions:|
+add_button|reset_farming|`4Reset Farming Settings|
+add_button|reset_banking|`4Reset Banking Settings|
+add_button|reset_webhook|`4Reset Webhook Settings|
+add_button|reset_all|`4Reset All Settings|
+add_spacer|small|
+add_textbox|`6Current Configuration Summary:|
+add_label_with_icon|small|`wFarming: ]] .. (cheatFarm and "ENABLED" or "DISABLED") .. [[|left|9654|
+add_label_with_icon|small|`wAuto Bank: ]] .. (autoBank and "ON" or "OFF") .. [[|left|7188|
+add_label_with_icon|small|`wAuto Eat: ]] .. (autoEat and "ON" or "OFF") .. [[|left|4604|
+add_label_with_icon|small|`wWebhook: ]] .. (whUse and "ENABLED" or "DISABLED") .. [[|left|1436|
+add_label_with_icon|small|`wMagplants: ]] .. #allMagplants .. [[ found|left|5638|
+add_spacer|small|
+add_textbox|`4Warning: Reset actions cannot be undone!|
+add_spacer|small|
+add_button|back_main|`9Back to Main|
+add_quick_exit||
+end_dialog|pnb_settings_mgmt|Close|
+]]
+    SendVariantList(varlist_command)
+end
 
 function isUserIdAllowed(userid)
     for _, allowedId in ipairs(UID) do
