@@ -1,3 +1,30 @@
+--[[
+PTHT Dual Player Script
+Based on PTHT_icShark.lua
+
+FEATURES:
+- Two-player role system for collaborative PTHT farming
+- Player 1: Plants and harvests from the starting left side of the world
+- Player 2: Only plants from the middle of the world, waits for harvest completion
+
+HOW TO USE:
+1. Load the script
+2. Connect to your PTHT world
+3. Select your role (Player 1 or Player 2) from the dialog
+4. Configure your magplant positions and world settings
+5. Start the script
+
+PLAYER ROLES:
+- Player 1: Full PTHT functionality (plant, harvest, spray)
+- Player 2: Only planting from middle, no harvesting or spraying
+
+SAFETY FEATURES:
+- Nil-safe function calls
+- World connection validation
+- Role-based execution
+- Error handling and recovery
+--]]
+
 platformID = 3126 -- platform id 
 backgroundID = 14  -- put background on mag
 
@@ -170,6 +197,12 @@ add_textbox|`3Player 2:|
 add_smalltext|`w- Only plants from the middle of the world|
 add_smalltext|`w- Does NOT harvest or use spray|
 add_smalltext|`w- Waits until all trees are harvested before planting again|
+add_spacer|small|
+add_textbox|`4Available Commands:|
+add_smalltext|`w/role - Show this dialog|
+add_smalltext|`w/player1 - Select Player 1 role|
+add_smalltext|`w/player2 - Select Player 2 role|
+add_smalltext|`w/status - Show current role|
 add_spacer|small|
 add_button|select_player1|`2Select Player 1|
 add_button|select_player2|`3Select Player 2|
@@ -536,6 +569,41 @@ AddHook("OnSendPacket", "RoleSelection", function(type, packet)
     return false
 end)
 
+-- Chat command handler for role selection
+AddHook("OnSendPacket", "ChatCommands", function(type, packet)
+    if packet:find("action|input") then
+        local text = packet:match("text|(.+)")
+        if text then
+            if text == "/role" or text == "/selectrole" then
+                ShowRoleSelectionDialog()
+                return true
+            elseif text == "/player1" then
+                playerRole = 1
+                overlayText("`2Player 1 selected! You will plant and harvest from the left.")
+                autoHarvest = true
+                autoSpray = true
+                return true
+            elseif text == "/player2" then
+                playerRole = 2
+                overlayText("`3Player 2 selected! You will only plant from the middle.")
+                autoHarvest = false
+                autoSpray = false
+                return true
+            elseif text == "/status" then
+                if playerRole == 1 then
+                    overlayText("`2Current Role: Player 1 (Plant & Harvest)")
+                elseif playerRole == 2 then
+                    overlayText("`3Current Role: Player 2 (Plant Only)")
+                else
+                    overlayText("`4Role not selected! Use /role to select.")
+                end
+                return true
+            end
+        end
+    end
+    return false
+end)
+
 -- Main execution
 ChangeValue("[C] Modfly", true)
 
@@ -648,7 +716,13 @@ if isUserIdAllowed(userId) then
         elseif playerRole == 2 then
             -- Player 2: Only plant, no harvest
             local treeCount = countTree()
-            overlayText("`3Player 2: Current trees in world: " .. treeCount)
+            local readyCount = countReady()
+            
+            if treeCount > 0 then
+                overlayText("`3Player 2: Trees in world: " .. treeCount .. " (Ready: " .. readyCount .. ") - Waiting for Player 1 to harvest")
+            else
+                overlayText("`3Player 2: No trees in world - Planting from middle")
+            end
             
             plant()
             plantMissedSpots()
