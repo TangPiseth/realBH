@@ -182,19 +182,6 @@ local function findItem(id)
     return count
 end
 
-local function FormatNumber(num)
-    num = math.floor(num + 0.5)
-
-    local formatted = tostring(num)
-    local k = 3
-    while k < #formatted do
-        formatted = formatted:sub(1, #formatted - k) .. "," .. formatted:sub(#formatted - k + 1)
-        k = k + 4
-    end
-
-    return formatted
-end
-
 local function removeColorAndSymbols(str)
     if not str then return "" end
     cleanedStr = string.gsub(str, "`(%S)", '')
