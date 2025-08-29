@@ -1,3 +1,76 @@
+--[[
+===============================================================================
+                        PTHT AntiCheat Version v1.0
+                          by @Mupnup
+===============================================================================
+
+DESCRIPTION:
+This is an advanced PTHT (Plant, Tree, Harvest, Tree) script designed to avoid
+anti-cheat detection by using slow movement patterns and Raw packet sending
+instead of FindPath/teleportation.
+
+KEY FEATURES:
+✓ Vertical Snake Planting Pattern (bottom-top, then top-bottom alternating)
+✓ Anti-cheat protection with movement rate limiting
+✓ Automatic magplant switching when stock is empty
+✓ Comprehensive configuration system via dialog
+✓ Slow movement after reconnection to avoid detection
+✓ UWS (Ultra World Spray) automation
+✓ Real-time statistics and progress tracking
+✓ Ghost mode automation
+✓ Raw packet movement instead of FindPath
+
+ANTI-CHEAT FEATURES:
+- Uses Raw() packets instead of FindPath() to avoid teleportation detection
+- Configurable movement delays between actions
+- Rate limiting: maximum moves per second configurable
+- Extra delays after reconnection
+- Slow vertical movement pattern mimics human behavior
+
+SETUP INSTRUCTIONS:
+1. Place magplants with appropriate background ID in your world
+2. Load the script in your Growtopia client
+3. Type "/pthtconfig" to open configuration dialog
+4. Configure your settings:
+   - World name
+   - Seed ID (default: 15757 for POG)
+   - Platform ID (default: 3126)
+   - Background ID for magplants (default: 14)
+   - Anti-cheat settings (delays, movement speed)
+   - UWS settings
+5. Click "Start PTHT" or use "/pthtstart" command
+
+COMMANDS:
+/pthtconfig  - Open main configuration dialog
+/pthtstart   - Start PTHT farming
+/pthtstop    - Stop PTHT farming
+/pthtstatus  - Show current status
+/pthtcheck   - Run pre-flight validation check
+/pthtquick   - Quick setup for POG farming (15757)
+
+PLANTING PATTERN:
+The script plants in a vertical snake pattern:
+- Column 0, 10, 20, 30... : Bottom to Top (Y: 192 → 0)
+- Column 10, 20, 30, 40... : Top to Bottom (Y: 0 → 192)
+This creates an efficient vertical pattern while avoiding predictable movement.
+
+REQUIREMENTS:
+- Magplants with seeds placed in the world
+- Platform blocks for farming area
+- Ultra World Spray (if UWS feature is enabled)
+- Sufficient world access permissions
+
+SAFETY FEATURES:
+- Prevents multiple instances running simultaneously
+- Automatic reconnection with anti-cheat delays
+- Magplant switching when empty
+- Configurable timeout and retry limits
+- Real-time status monitoring
+
+For support or updates, contact @Mupnup
+===============================================================================
+]]--
+
 -- PTHT AntiCheat Version by @Mupnup
 -- Anti-cheat protection with slow movement and vertical planting pattern
 
@@ -504,7 +577,69 @@ local function HarvestTrees()
     return harvested > 0
 end
 
--- Connection Functions
+-- Validation Functions
+local function ValidateFarmingSetup()
+    if not GetWorld() then
+        Console("ERROR: Not connected to any world!")
+        return false
+    end
+    
+    if GetWorld().name ~= Settings.World then
+        Console("ERROR: Connected to wrong world! Expected: " .. Settings.World .. ", Current: " .. GetWorld().name)
+        return false
+    end
+    
+    -- Check for magplants
+    allMagplants = FindAllMagplants()
+    if #allMagplants == 0 then
+        Console("ERROR: No magplants found with background ID " .. Settings.BackgroundID)
+        return false
+    end
+    
+    Console("Found " .. #allMagplants .. " magplants")
+    
+    -- Check if we have any remote seeds
+    local remoteCount = GetItemCount(5640)
+    if remoteCount == 0 then
+        Console("WARNING: No remote seeds in inventory, will try to get from magplant")
+    else
+        Console("Remote seeds available: " .. remoteCount)
+    end
+    
+    -- Check for platforms in farming area
+    local platformCount = 0
+    for x = Settings.StartingPos[1], math.min(Settings.StartingPos[1] + 50, Settings.MaxX) do
+        for y = Settings.StartingPos[2], math.max(Settings.StartingPos[2] - 20, 0), -1 do
+            local tile = GetTile(x, y)
+            if tile and tile.fg == Settings.PlatformID then
+                platformCount = platformCount + 1
+            end
+        end
+    end
+    
+    if platformCount == 0 then
+        Console("ERROR: No platform blocks found in farming area! Platform ID: " .. Settings.PlatformID)
+        return false
+    end
+    
+    Console("Validation successful - Found " .. platformCount .. " platform blocks")
+    return true
+end
+
+-- Pre-flight check function
+local function PreFlightCheck()
+    Console("Running pre-flight checks...")
+    
+    if not ValidateFarmingSetup() then
+        Console("Pre-flight check FAILED! Please fix the issues above.")
+        OverlayText("`4Pre-flight check FAILED!")
+        return false
+    end
+    
+    Console("Pre-flight check PASSED! Ready to start PTHT.")
+    OverlayText("`2Pre-flight check PASSED!")
+    return true
+end
 local function Reconnect()
     if isReconnecting then return end
     isReconnecting = true
@@ -534,12 +669,12 @@ local function Reconnect()
     isReconnecting = false
 end
 
--- Hook for magplant empty detection
+-- Hook for magplant empty detection and other events
 AddHook("OnVariant", "MagplantCheck", function(var)
     if var[0] == "OnTalkBubble" and var[2]:find("The MAGPLANT 5000 is empty") then
         changeRemote = true
         noStock = true
-        Log("Magplant empty detected")
+        Log("Magplant empty detected via talk bubble")
         return false
     end
     
@@ -557,6 +692,25 @@ AddHook("OnVariant", "MagplantCheck", function(var)
         return true
     end
     
+    -- Handle disconnection
+    if var[0] == "OnConsoleMessage" and var[1]:find("Disconnected") then
+        Log("Disconnection detected")
+        isReconnecting = true
+        return false
+    end
+    
+    return false
+end)
+
+-- Additional packet hook for anti-cheat protection
+AddHook("OnSendPacket", "AntiCheatProtection", function(type, packet)
+    -- Block rapid movement packets if anti-cheat is enabled
+    if Settings.AntiCheatMode and type == 0 then
+        if not CanMove() then
+            Log("Blocked rapid movement packet")
+            return true
+        end
+    end
     return false
 end)
 
@@ -567,10 +721,16 @@ local function MainPTHTLoop()
         return
     end
     
+    -- Run pre-flight checks
+    if not PreFlightCheck() then
+        return
+    end
+    
     isRunning = true
     Console("Starting Anti-Cheat PTHT v1.0")
     Console("World: " .. Settings.World)
     Console("Max PTHT: " .. Settings.MaxPTHT)
+    Console("Anti-cheat mode: " .. (Settings.AntiCheatMode and "ENABLED" or "DISABLED"))
     
     -- Enable modfly for better movement
     ChangeValue("[C] Modfly", true)
@@ -731,7 +891,11 @@ add_spacer|small|
 
 add_button|start_ptht|`2Start PTHT|
 add_button|stop_ptht|`4Stop PTHT|
+add_button|preflight_check|`6Run Pre-flight Check|
 add_button|refresh_magplants|`6Refresh Magplants|
+add_spacer|small|
+add_textbox|`9Quick Setup for POG Farming:|
+add_button|quick_setup_pog|`9Quick Setup POG (ID: 15757)|
 add_quick_exit||
 end_dialog|anticheat_ptht_main|Save & Close|
 ]]
@@ -848,6 +1012,20 @@ AddHook("OnSendPacket", "PTHTConfigHandler", function(type, packet)
                 allMagplants = FindAllMagplants()
                 OverlayText("`6Found " .. #allMagplants .. " magplants!")
                 ShowMainConfigDialog()
+            elseif packet:find("buttonClicked|preflight_check") then
+                PreFlightCheck()
+                ShowMainConfigDialog()
+            elseif packet:find("buttonClicked|quick_setup_pog") then
+                -- Quick setup for POG farming
+                Settings.SeedID = 15757
+                Settings.PlatformID = 3126
+                Settings.BackgroundID = 14
+                Settings.MaxPTHT = 30
+                Settings.UseUWS = true
+                Settings.AntiCheatMode = true
+                Settings.SlowMovement = true
+                OverlayText("`9Quick setup applied for POG farming!")
+                ShowMainConfigDialog()
             end
             
             OverlayText("`2Settings saved successfully!")
@@ -880,6 +1058,21 @@ AddHook("OnSendPacket", "PTHTCommandHandler", function(type, packet)
                 isRunning = false
                 OverlayText("`4PTHT Stopped")
                 return true
+            elseif text == "/pthtcheck" then
+                PreFlightCheck()
+                return true
+            elseif text == "/pthtquick" then
+                -- Quick setup for POG farming
+                Settings.SeedID = 15757
+                Settings.PlatformID = 3126
+                Settings.BackgroundID = 14
+                Settings.MaxPTHT = 30
+                Settings.UseUWS = true
+                Settings.AntiCheatMode = true
+                Settings.SlowMovement = true
+                Console("Quick setup applied for POG farming!")
+                OverlayText("`9Quick POG setup complete!")
+                return true
             end
         end
     end
@@ -888,5 +1081,5 @@ end)
 
 -- Start the script
 Console("Anti-Cheat PTHT v1.0 initialized")
-Console("Commands: /pthtconfig, /pthtstart, /pthtstatus")
+Console("Commands: /pthtconfig, /pthtstart, /pthtstop, /pthtcheck, /pthtquick")
 OverlayText("`2Anti-Cheat PTHT loaded! Use /pthtconfig to setup")
